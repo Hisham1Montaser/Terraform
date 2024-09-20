@@ -6,5 +6,3 @@ terraform {
     key = "terraform.tfstate"
   }
 }
-
-test
