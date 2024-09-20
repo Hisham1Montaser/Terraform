@@ -1,0 +1,10 @@
+# Ignore terraform state files
+*.tfstate
+*.tfstate.backup
+
+# Ignore .terraform directory
+.terraform/
+
+# Ignore other sensitive or large files
+secrets.json
+*.log
