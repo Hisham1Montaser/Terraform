@@ -79,3 +79,5 @@ resource "azurerm_network_interface" "My-Nic-Alise" {
     environment = "Dev"
   }
 }
+
+test
