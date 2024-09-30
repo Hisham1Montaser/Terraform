@@ -1,5 +1,5 @@
 resource "azurerm_resource_group" "My-RG" {
-  name     = "DC-RG"
+  name     = var.resource_group_name
   location = var.location
   tags = {
     environment = "Prod"
@@ -7,11 +7,10 @@ resource "azurerm_resource_group" "My-RG" {
 }
 
 resource "azurerm_virtual_network" "My-VNET" {
-  name                = "DC-VNET"
+  name                = var.virtual_network_name
   resource_group_name = azurerm_resource_group.My-RG.name
   location            = var.location
   address_space       = ["10.10.0.0/16"]
-  depends_on          = [azurerm_resource_group.My-RG]
 
   tags = {
     environment = "Prod"
@@ -30,7 +29,6 @@ resource "azurerm_public_ip" "My-PublicIP" {
   resource_group_name = azurerm_resource_group.My-RG.name
   location            = var.location
   allocation_method   = "Static"
-  depends_on          = [azurerm_resource_group.My-RG]
 
   tags = {
     environment = "Prod"
@@ -41,7 +39,6 @@ resource "azurerm_network_interface" "My-Nic" {
   name                = "DC-Nic"
   resource_group_name = azurerm_resource_group.My-RG.name
   location            = var.location
-  depends_on          = [azurerm_resource_group.My-RG]
 
   ip_configuration {
     name                          = "internal"
@@ -62,7 +59,6 @@ resource "azurerm_virtual_machine" "My-VM" {
   resource_group_name   = azurerm_resource_group.My-RG.name
   network_interface_ids = [azurerm_network_interface.My-Nic.id]
   vm_size               = "Standard_DS2_v2"
-  depends_on            = [azurerm_resource_group.My-RG]
 
   storage_image_reference {
     publisher = "MicrosoftWindowsServer"
@@ -97,7 +93,6 @@ resource "azurerm_network_security_group" "My-NSG" {
   name                = var.network_security_group_name
   resource_group_name = azurerm_resource_group.My-RG.name
   location            = var.location
-  depends_on          = [azurerm_resource_group.My-RG]
 
   tags = {
     environment = "Prod"
@@ -115,8 +110,7 @@ resource "azurerm_network_security_rule" "My-NSGRule" {
   source_address_prefix       = "*"
   destination_address_prefix  = "*"
   resource_group_name         = azurerm_resource_group.My-RG.name
-  network_security_group_name = var.network_security_group_name
-  depends_on                  = [azurerm_network_security_group.My-NSG]
+  network_security_group_name = azurerm_network_security_group.My-NSG.name
 }
 
 resource "azurerm_network_interface_security_group_association" "My-DC-NSG-Association" {
