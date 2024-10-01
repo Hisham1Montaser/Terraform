@@ -121,3 +121,56 @@ resource "azurerm_network_interface_security_group_association" "My-DC-NSG-Assoc
 output "public_ip" {
   value = azurerm_public_ip.My-PublicIP.ip_address
 }
+
+#Needed for executing a script:
+
+resource "azurerm_storage_account" "My-StorageAccount" {
+  name                     = "bastawisidcstorage"
+  resource_group_name      = var.resource_group_name
+  location                 = var.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+  depends_on               = [azurerm_virtual_machine.My-VM]
+
+  tags = {
+    environment = "Prod"
+  }
+}
+
+resource "azurerm_storage_container" "My-Container" {
+  name                  = "dc-container"
+  storage_account_name  = azurerm_storage_account.My-StorageAccount.name
+  container_access_type = "blob"
+  depends_on            = [azurerm_storage_account.My-StorageAccount]
+
+}
+
+resource "azurerm_storage_blob" "My-blob" {
+  name                   = "scriptforad.ps1"
+  storage_account_name   = azurerm_storage_account.My-StorageAccount.name
+  storage_container_name = azurerm_storage_container.My-Container.name
+  type                   = "Block"
+  source                 = "scriptforad.ps1"
+  depends_on             = [azurerm_storage_container.My-Container]
+
+}
+
+resource "azurerm_virtual_machine_extension" "My-VMExtension" {
+  name                 = "DC-VMExtension"
+  virtual_machine_id   = azurerm_virtual_machine.My-VM.id
+  publisher            = "Microsoft.Compute"
+  type                 = "CustomScriptExtension"
+  type_handler_version = "1.10"
+  depends_on           = [azurerm_storage_blob.My-blob]
+  settings             = <<SETTINGS
+ {
+ "fileUris": ["https://${azurerm_storage_account.My-StorageAccount.name}.blob.core.windows.net/dc-container/scriptforad.ps1"],
+  "commandToExecute": "powershell -ExecutionPolicy Unrestricted -file scriptforad.ps1"
+ }
+SETTINGS
+
+
+  tags = {
+    environment = "Prod"
+  }
+}
