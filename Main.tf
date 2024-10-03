@@ -6,35 +6,6 @@ resource "azurerm_resource_group" "My-RG" {
   }
 }
 
-resource "azurerm_virtual_network" "My-VNET" {
-  name                = var.virtual_network_name
-  resource_group_name = azurerm_resource_group.My-RG.name
-  location            = var.location
-  address_space       = ["10.10.0.0/16"]
-
-  tags = {
-    environment = "Prod"
-  }
-}
-
-resource "azurerm_subnet" "My-Subnet" {
-  name                 = "DC-Subnet"
-  resource_group_name  = azurerm_resource_group.My-RG.name
-  virtual_network_name = azurerm_virtual_network.My-VNET.name
-  address_prefixes     = ["10.10.0.0/24"]
-}
-
-resource "azurerm_public_ip" "My-PublicIP" {
-  name                = "DC-PublicIP"
-  resource_group_name = azurerm_resource_group.My-RG.name
-  location            = var.location
-  allocation_method   = "Static"
-
-  tags = {
-    environment = "Prod"
-  }
-}
-
 resource "azurerm_network_interface" "My-Nic" {
   name                = "DC-Nic"
   resource_group_name = azurerm_resource_group.My-RG.name
@@ -71,7 +42,7 @@ resource "azurerm_virtual_machine" "My-VM" {
     name              = "MyOSDisk"
     caching           = "ReadWrite"
     create_option     = "FromImage"
-    managed_disk_type = "Standard_LRS"
+    managed_disk_type = "StandardSSD_LRS"
   }
   os_profile {
     computer_name  = "DC"
@@ -99,14 +70,14 @@ resource "azurerm_network_security_group" "My-NSG" {
   }
 }
 
-resource "azurerm_network_security_rule" "My-NSGRule" {
-  name                        = "DC-NSGRule"
+resource "azurerm_network_security_rule" "My-NSGRule-Inbound" {
+  name                        = "DC-InboundNSGRule"
   priority                    = 100
   direction                   = "Inbound"
   access                      = "Allow"
-  protocol                    = "*"
+  protocol                    = "Tcp"
   source_port_range           = "*"
-  destination_port_range      = "*"
+  destination_port_range      = "3389"
   source_address_prefix       = "*"
   destination_address_prefix  = "*"
   resource_group_name         = azurerm_resource_group.My-RG.name
@@ -118,42 +89,6 @@ resource "azurerm_network_interface_security_group_association" "My-DC-NSG-Assoc
   network_security_group_id = azurerm_network_security_group.My-NSG.id
 }
 
-output "public_ip" {
-  value = azurerm_public_ip.My-PublicIP.ip_address
-}
-
-#Needed for executing a script:
-
-resource "azurerm_storage_account" "My-StorageAccount" {
-  name                     = "bastawisidcstorage"
-  resource_group_name      = var.resource_group_name
-  location                 = var.location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
-  depends_on               = [azurerm_virtual_machine.My-VM]
-
-  tags = {
-    environment = "Prod"
-  }
-}
-
-resource "azurerm_storage_container" "My-Container" {
-  name                  = "dc-container"
-  storage_account_name  = azurerm_storage_account.My-StorageAccount.name
-  container_access_type = "blob"
-  depends_on            = [azurerm_storage_account.My-StorageAccount]
-
-}
-
-resource "azurerm_storage_blob" "My-blob" {
-  name                   = "scriptforad.ps1"
-  storage_account_name   = azurerm_storage_account.My-StorageAccount.name
-  storage_container_name = azurerm_storage_container.My-Container.name
-  type                   = "Block"
-  source                 = "scriptforad.ps1"
-  depends_on             = [azurerm_storage_container.My-Container]
-
-}
 
 resource "azurerm_virtual_machine_extension" "My-VMExtension" {
   name                 = "DC-VMExtension"
