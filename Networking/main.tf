@@ -1,32 +1,24 @@
 
 resource "azurerm_virtual_network" "My-VNET" {
   name                = var.virtual_network_name
-  resource_group_name = azurerm_resource_group.My-RG.name
+  resource_group_name = var.resource_group_name
   location            = var.location
-  address_space       = ["10.10.0.0/16"]
-
-  tags = {
-    environment = "Prod"
-  }
+  address_space       = var.address_space
 }
 
 resource "azurerm_subnet" "My-Subnet" {
-  name                 = "DC-Subnet"
-  resource_group_name  = azurerm_resource_group.My-RG.name
+  name                 = var.subnet_name
+  resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.My-VNET.name
-  address_prefixes     = ["10.10.0.0/24"]
+  address_prefixes     = var.subnet_address_prefixes
   service_endpoints    = ["Microsoft.Storage"]
 }
 
 resource "azurerm_public_ip" "My-PublicIP" {
-  name                = "DC-PublicIP"
-  resource_group_name = azurerm_resource_group.My-RG.name
+  name                = var.public_ip_name
+  resource_group_name = var.resource_group_name
   location            = var.location
   allocation_method   = "Static"
-
-  tags = {
-    environment = "Prod"
-  }
 }
 
 

@@ -1,111 +1,52 @@
 resource "azurerm_resource_group" "My-RG" {
   name     = var.resource_group_name
   location = var.location
-  tags = {
-    environment = "Prod"
-  }
 }
 
-resource "azurerm_network_interface" "My-Nic" {
-  name                = "DC-Nic"
-  resource_group_name = azurerm_resource_group.My-RG.name
-  location            = var.location
-
-  ip_configuration {
-    name                          = "internal"
-    subnet_id                     = azurerm_subnet.My-Subnet.id
-    private_ip_address_allocation = "Static"
-    private_ip_address            = "10.10.0.4"
-    public_ip_address_id          = azurerm_public_ip.My-PublicIP.id
-  }
-
-  tags = {
-    environment = "Prod"
-  }
+module "Networking" {
+  source                  = "./Networking"
+  location                = var.location
+  resource_group_name     = var.resource_group_name
+  virtual_network_name    = var.virtual_network_name
+  address_space           = var.address_space
+  subnet_name             = var.subnet_name
+  subnet_address_prefixes = var.subnet_address_prefixes
+  public_ip_name          = var.public_ip_name
 }
 
-resource "azurerm_virtual_machine" "My-VM" {
-  name                  = "DC-VM"
-  location              = var.location
-  resource_group_name   = azurerm_resource_group.My-RG.name
-  network_interface_ids = [azurerm_network_interface.My-Nic.id]
-  vm_size               = "Standard_DS2_v2"
+module "Storage-Account" {
+  source                 = "./Storage-Account"
+  location               = var.location
+  resource_group_name    = var.resource_group_name
+  storage_account_name   = var.storage_account_name
+  storage_container_name = var.storage_container_name
+  storage_blob_name      = var.storage_blob_name
+  stroage_blob_source    = var.stroage_blob_source
 
-  storage_image_reference {
-    publisher = "MicrosoftWindowsServer"
-    offer     = "WindowsServer"
-    sku       = "2019-Datacenter"
-    version   = "latest"
-  }
-
-  storage_os_disk {
-    name              = "MyOSDisk"
-    caching           = "ReadWrite"
-    create_option     = "FromImage"
-    managed_disk_type = "StandardSSD_LRS"
-  }
-  os_profile {
-    computer_name  = "DC"
-    admin_username = "admiin"
-    admin_password = var.admin_password
-  }
-
-  os_profile_windows_config {
-    provision_vm_agent = true
-  }
-
-  tags = {
-    environment = "Prod"
-  }
+  #Passing outputs from Networking module to Storage-Account module
+  subnet_id = module.Networking.subnet_id
 }
 
+module "VM" {
+  source                 = "./VM"
+  location               = var.location
+  resource_group_name    = var.resource_group_name
+  DC-VM-NIC-Name         = var.DC-VM-NIC-Name
+  DC-IP-Config-Name      = var.DC-IP-Config-Name
+  DC-PrivateIP           = var.DC-PrivateIP
+  DC-VM-Name             = var.DC-VM-Name
+  DC-VM-Size             = var.DC-VM-Size
+  DC-Computer-Name       = var.DC-Computer-Name
+  DC-VM-localAdmin       = var.DC-VM-localAdmin
+  DC-VM-localAdmin-PW    = var.DC-VM-localAdmin-PW
+  DC-NSG-Name            = var.DC-NSG-Name
+  DC-VM-Extension-name   = var.DC-VM-Extension-name
+  storage_account_name   = var.storage_account_name
+  storage_container_name = var.storage_container_name
+  script_file_name       = var.script_file_name
 
-resource "azurerm_network_security_group" "My-NSG" {
-  name                = var.network_security_group_name
-  resource_group_name = azurerm_resource_group.My-RG.name
-  location            = var.location
-
-  tags = {
-    environment = "Prod"
-  }
-}
-
-resource "azurerm_network_security_rule" "My-NSGRule-Inbound" {
-  name                        = "DC-InboundNSGRule"
-  priority                    = 100
-  direction                   = "Inbound"
-  access                      = "Allow"
-  protocol                    = "Tcp"
-  source_port_range           = "*"
-  destination_port_range      = "3389"
-  source_address_prefix       = "*"
-  destination_address_prefix  = "*"
-  resource_group_name         = azurerm_resource_group.My-RG.name
-  network_security_group_name = azurerm_network_security_group.My-NSG.name
-}
-
-resource "azurerm_network_interface_security_group_association" "My-DC-NSG-Association" {
-  network_interface_id      = azurerm_network_interface.My-Nic.id
-  network_security_group_id = azurerm_network_security_group.My-NSG.id
-}
-
-
-resource "azurerm_virtual_machine_extension" "My-VMExtension" {
-  name                 = "DC-VMExtension"
-  virtual_machine_id   = azurerm_virtual_machine.My-VM.id
-  publisher            = "Microsoft.Compute"
-  type                 = "CustomScriptExtension"
-  type_handler_version = "1.10"
-  depends_on           = [azurerm_storage_blob.My-blob]
-  settings             = <<SETTINGS
- {
- "fileUris": ["https://${azurerm_storage_account.My-StorageAccount.name}.blob.core.windows.net/dc-container/scriptforad.ps1"],
-  "commandToExecute": "powershell -ExecutionPolicy Unrestricted -file scriptforad.ps1"
- }
-SETTINGS
-
-
-  tags = {
-    environment = "Prod"
-  }
+  #Passing outputs from Networking module to VM module
+  subnet_id    = module.Networking.subnet_id
+  PublicIP_id  = module.Networking.PublicIP_id
+  Storage_blob = module.Storage-Account.Storage_blob
 }
